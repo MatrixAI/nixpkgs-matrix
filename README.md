@@ -1,2 +1,3 @@
 # nixpkgs-matrix
-A public nixpkgs/flakes overlay for Matrix AI projects.
+
+Matrix AI's public nixpkgs flake/overlay.
