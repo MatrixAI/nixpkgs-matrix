@@ -6,7 +6,7 @@
     flake-utils.url = "github:numtide/flake-utils"; # No pinning needed (doesn't use nixpkgs)
 
     # Custom packages
-    polykey-cli.url = "github:MatrixAI/Polykey-CLI?rev=6eff08c36c48b3c6622ff06701e034e602cf5acf";
+    polykey-cli.url = "github:MatrixAI/Polykey-CLI?rev=6f599a511c5fc42fb616f1761a19c376d0423148";
     polykey-cli.inputs.nixpkgs.follows = "nixpkgs"; # Inheriting the nixpkgs input above; pinned
   };
 
