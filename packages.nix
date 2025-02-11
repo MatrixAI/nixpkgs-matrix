@@ -2,5 +2,7 @@
 
 lib.makeExtensible (self: {
   polykey-cli = (builtins.getFlake
-    "github:MatrixAI/Polykey-CLI/8981bd48ce2db238b1adcfee69aa5552ecff78fb").packages.${system}.default;
+    "github:MatrixAI/Polykey-CLI/022856be82ff26335f366f509b5fdd6fe0edc8a6").packages.${system}.default;
+  polykey-cli-docker = (builtins.getFlake
+    "github:MatrixAI/Polykey-CLI/022856be82ff26335f366f509b5fdd6fe0edc8a6").packages.${system}.docker;
 })
