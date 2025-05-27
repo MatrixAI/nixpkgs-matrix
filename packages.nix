@@ -2,7 +2,7 @@
 
 let
   polykey-cli-flake = builtins.getFlake
-    "github:MatrixAI/Polykey-CLI/b102fdc7b456d1140817691a8623046aff6d8f70";
+    "github:MatrixAI/Polykey-CLI/ea69b5f5bdf9a05a17c800c55e8613c3f68eb89d";
 in lib.makeExtensible (self: {
   polykey-cli = polykey-cli-flake.packages.${system}.default;
   polykey-cli-docker = polykey-cli-flake.packages.${system}.docker;
