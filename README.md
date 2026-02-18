@@ -5,33 +5,54 @@ Matrix AI's public Nix Packages collection.
 ## Contents
 
 - [Installation](#installation)
-  - [How to use](#how-to-use)
-  - [Include in flake.nix](#include-in-flakenix)
+  - [Internal (Matrix)](#internal-matrix)
+  - [External / OSS](#external--oss)
+  - [Why not `type = "indirect"`?](#why-not-type--"indirect")
 - [Development](#development)
   - [Project structure](#project-structure)
 - [License](#license)
 
 ## Installation
 
-### How to use
+This repository is configured to support Flakes. Ensure flakes are enabled (e.g. via `nix.settings.experimental-features = [ "nix-command" "flakes" ];`).
 
-This repository is configured to support Flakes, an extra-experimental feature in the Nix package manager. To enable it, either append the following argument to every command involving flakes:
+### Internal (Matrix)
 
+Prefer the Matrix registry so internal consumers resolve via `flake:nixpkgs-matrix` (stable IDs with Nix ≥ 2.26):
+
+```nix
+{
+  nixConfig = {
+    flake-registry = "https://nix.matrix.ai/registry/flake-registry.json";
+    experimental-features = [ "nix-command" "flakes" ];
+  };
+
+  inputs = {
+    nixpkgs-matrix.url = "flake:nixpkgs-matrix";
+  };
+
+  outputs = inputs@{ nixpkgs-matrix, ... }:
+    let
+      system = builtins.currentSystem or "x86_64-linux";
+      pkgs = nixpkgs-matrix.legacyPackages.${system};
+    in {
+      nixosConfigurations.example = nixpkgs-matrix.lib.nixosSystem {
+        specialArgs = { inherit inputs system; };
+        modules = [ ./configuration.nix ];
+      };
+
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [ pkgs.hello ];
+      };
+    };
+}
 ```
-nix <command> --extra-experimental-features flakes
-```
 
-Or you can permanently enable it by setting this in your configuration.nix:
+Registry can also be set globally: `nix.settings.flake-registry = "https://nix.matrix.ai/registry/flake-registry.json";`.
 
-```
-nix.settings.experimental-features = [ "nix-command" "flakes" ];
-```
+### External / OSS
 
-### Include in flake.nix
-
-To use this custom package set, you will need to update your `flake.nix` to target `MatrixAI/nixpkgs-matrix` instead of `NixOS/nixpkgs`.
-
-Example configuration:
+External consumers should pin directly to the GitHub URL (optionally set the registry above to keep the indirect ID stable):
 
 ```nix
 {
@@ -40,62 +61,32 @@ Example configuration:
   };
 
   outputs = inputs@{ nixpkgs-matrix, ... }:
-  let
-    username = "myuser";
-    hostname = "myhostname";
-    system = "mysystem";
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs-matrix.legacyPackages.${system};
+    in {
+      nixosConfigurations.example = nixpkgs-matrix.lib.nixosSystem {
+        specialArgs = { inherit inputs system; };
+        modules = [ ./configuration.nix ];
+      };
 
-    pkgs = nixpkgs-matrix.legacyPackages.${system};
-  in
-  {
-    nixosConfigurations.${hostname} = nixpkgs-matrix.lib.nixosSystem {
-      specialArgs = { inherit inputs username hostname system; };
-      modules = [ ./configuration.nix ];
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [ pkgs.hello ];
+      };
     };
-  };
 }
 ```
 
-Diff of typical flake configuration:
+### Why not `type = "indirect"`?
 
-```diff
-diff --git a/old.nix b/new.nix
-index c96b76d..a2d90f3 100644
---- a/old.nix
-+++ b/new.nix
-@@ -1,20 +1,18 @@
- {
-   inputs = {
--    nixpkgs.url = "github:NixOS/nixpkgs";
-+    nixpkgs-matrix.url = "github:MatrixAI/nixpkgs-matrix";
-   };
- 
--  outputs = inputs@{ nixpkgs, ... }:
-+  outputs = inputs@{ nixpkgs-matrix, ... }:
-   let
-     username = "myuser";
-     hostname = "myhostname";
-     system = "mysystem";
- 
--    pkgs = import nixpkgs {
--      config.allowUnfree = true;
--    };
-+    pkgs = nixpkgs-matrix.legacyPackages.${system};
-   in
-   {
--    nixosConfigurations.${hostname} = nixpkgs.lib.nixosSystem {
-+    nixosConfigurations.${hostname} = nixpkgs-matrix.lib.nixosSystem {
-       specialArgs = { inherit inputs username hostname system; };
-       modules = [ ./configuration.nix ];
-     };
-```
+`type = "indirect"` inputs are rewritten during lockfile writes (notably with Nix 2.26), which can produce unstable IDs across environments. Matrix's approach is to use the global registry entry (`flake:nixpkgs-matrix`) for internal stability, while external users continue to consume the explicit GitHub URL.
 
 ## Development
 
 This repository contains a few important files to look at when contributing to the project.
 
-- `flake.nix`- Contains the base definition for the flake package. Re-exports our modified package set as an output.
-- `packages.nix` - Custom packages are placed here. This needs to be done using `builtins.getFlake` and must provide a revision hash.
+- `flake.nix` - Contains the base definition for the flake package. Re-exports our modified package set as an output.
+- `packages.nix` - Custom packages are placed here. These entries use `builtins.getFlake` with explicit revisions for reproducibility; prefer wiring new dependencies through flake inputs unless a fixed-rev fetch is required.
 
 ### Project structure
 
@@ -107,4 +98,4 @@ This repository contains a few important files to look at when contributing to t
 
 ## License
 
-Thes source code for this project is licensed under the Apache 2.0 License. You may find the conditions of the license [here](LICENSE).
+The source code for this project is licensed under the Apache 2.0 License. You may find the conditions of the license [here](LICENSE).

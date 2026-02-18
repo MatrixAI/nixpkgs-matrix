@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url =
-      "github:NixOS/nixpkgs/0d2b38f933f51002f4949a53d52b3eff0026ba0c";
+      "github:NixOS/nixpkgs/a82ccc39b39b621151d6732718e3e250109076fa";
   };
 
   outputs = { self, nixpkgs }:
@@ -19,6 +19,17 @@
       legacyPackages.${system} = pkgs;
       nixpkgs = nixpkgs_;
       lib = nixpkgs_.lib;
+
+      templates = {
+        internal = {
+          path = ./templates/internal;
+          description = "Matrix internal template using flake registry flake:nixpkgs-matrix";
+        };
+
+        external = {
+          path = ./templates/external;
+          description = "External template using github:MatrixAI/nixpkgs-matrix";
+        };
+      };
     };
 }
-
