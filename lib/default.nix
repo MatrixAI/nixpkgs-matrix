@@ -1,0 +1,5 @@
+{ mkPkgs }:
+
+{
+  inherit mkPkgs;
+}

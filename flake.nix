@@ -9,16 +9,26 @@
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
+      defaultOverlay = import ./overlays/default.nix;
+      mkPkgs = import ./lib/mkPkgs.nix {
+        inherit nixpkgs;
+        inherit defaultOverlay;
+      };
       nixpkgs_ = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
-      packages = final: prev: (nixpkgs_.callPackage ./packages.nix { });
-      pkgs = nixpkgs_.extend packages;
+      publicLib = nixpkgs_.lib // (import ./lib/default.nix { inherit mkPkgs; });
     in {
-      legacyPackages.${system} = pkgs;
+      overlays.default = defaultOverlay;
+
+      legacyPackages.${system} = publicLib.mkPkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+
       nixpkgs = nixpkgs_;
-      lib = nixpkgs_.lib;
+      lib = publicLib;
 
       templates = {
         internal = {
