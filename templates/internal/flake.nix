@@ -13,12 +13,26 @@
   outputs = inputs@{ nixpkgs-matrix, ... }:
     let
       system = builtins.currentSystem or "x86_64-linux";
-      pkgs = nixpkgs-matrix.legacyPackages.${system};
+      # Canonical constructor path
+      pkgs = nixpkgs-matrix.lib.mkPkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      # Compatibility fallback (major v1 contract window only):
+      # pkgs = nixpkgs-matrix.legacyPackages.${system};
     in {
       nixosConfigurations.example = nixpkgs-matrix.lib.nixosSystem {
         specialArgs = { inherit inputs system; };
-        modules = [ ./configuration.nix ];
+        modules = [
+          nixpkgs-matrix.nixosModules.default
+          ./configuration.nix
+        ];
       };
+
+      homeConfigurations.example =
+        nixpkgs-matrix.homeModules.default;
+      # Compatibility alias (equivalent surface):
+      # homeConfigurations.example = nixpkgs-matrix.homeManagerModules.default;
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [ pkgs.hello ];

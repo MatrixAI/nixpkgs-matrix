@@ -9,37 +9,42 @@
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
-      defaultOverlay = import ./overlays/default.nix;
-      mkPkgs = import ./lib/mkPkgs.nix {
-        inherit nixpkgs;
-        inherit defaultOverlay;
-      };
-      nixpkgs_ = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-      publicLib = nixpkgs_.lib // (import ./lib/default.nix { inherit mkPkgs; });
-    in {
-      overlays.default = defaultOverlay;
-
-      legacyPackages.${system} = publicLib.mkPkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-
-      nixpkgs = nixpkgs_;
+      defaultOverlay = import ./overlays;
+      publicLib = (import ./lib { 
+        lib = nixpkgs.lib;
+        overlay = defaultOverlay;
+        mkPkgsUpstream = { system, overlays ? [ ], config ? { } }:
+          import nixpkgs {
+            inherit system overlays config;
+          };
+      });
+      pkgsFor = system: 
+        publicLib.mkPkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+      pkgs = pkgsFor system;
+    in rec {
       lib = publicLib;
 
-      templates = {
-        internal = {
-          path = ./templates/internal;
-          description = "Matrix internal template using flake registry flake:nixpkgs-matrix";
-        };
+      overlays.default = defaultOverlay;
 
-        external = {
-          path = ./templates/external;
-          description = "External template using github:MatrixAI/nixpkgs-matrix";
-        };
+      legacyPackages.${system} = pkgs;
+
+      packages.${system} =
+        let
+          packageDefs = import ./pkgs { inherit system; };
+        in
+          packageDefs.project pkgs;
+
+      nixosModules = {
+        default = import ./modules/nixos/default.nix;
       };
+
+      # Home-Manager modules
+      homeModules = {
+        default = import ./modules/home/default.nix;
+      };
+      homeManagerModules = homeModules;
     };
 }
