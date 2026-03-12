@@ -2,8 +2,14 @@
   description = "Matrix AI Public Overlay";
 
   inputs = {
-    nixpkgs.url =
-      "github:NixOS/nixpkgs/a82ccc39b39b621151d6732718e3e250109076fa";
+    # BEGIN: nixpkgs-pin (managed by scripts/nixpkgs-pin-policy.sh)
+    nixpkgs = {
+      type = "github";
+      owner = "NixOS";
+      repo = "nixpkgs";
+      rev = "a82ccc39b39b621151d6732718e3e250109076fa";
+    };
+    # END: nixpkgs-pin
   };
 
   outputs = { self, nixpkgs }:
@@ -31,11 +37,7 @@
 
       legacyPackages.${system} = pkgs;
 
-      packages.${system} =
-        let
-          packageDefs = import ./pkgs { inherit system; };
-        in
-          packageDefs.project pkgs;
+      packages.${system} = (import ./pkgs { }).exportTopLevel pkgs;
 
       nixosModules = {
         default = import ./modules/nixos/default.nix;

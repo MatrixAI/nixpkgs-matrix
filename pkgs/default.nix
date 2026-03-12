@@ -1,42 +1,31 @@
-{ system }:
+{ }:
 
 let
-  defs = {
-    topLevel = pkgs:
-      let
-        polykey-cli-flake = builtins.getFlake
-          "github:MatrixAI/Polykey-CLI/b72e05b3709dcc862fac428022c4b8bbe3e35f6e";
-      in {
-        matrixai-public-hello = pkgs.hello;
-        polykey-cli = polykey-cli-flake.packages.${system}.default;
-        polykey-cli-docker = polykey-cli-flake.packages.${system}.docker;
-      };
+  registry = {
+    topLevel = {
+      matrixai-public-hello = ./top-level/matrixai-public-hello.nix;
+      polykey-cli = ./top-level/polykey-cli.nix;
+    };
 
     scopes = {
-      python3Packages = pyPkgs: {
-        jsonpyth = pyPkgs.callPackage ./development/python-modules/jsonpyth { };
-        procpath = pyPkgs.callPackage ./development/python-modules/procpath { };
+      python3Packages = {
+        jsonpyth = ./development/python-modules/jsonpyth;
+        procpath = ./development/python-modules/procpath;
       };
     };
   };
 
-  applyScopesOverlay = final: prev: scopes:
-    builtins.mapAttrs
-      (scopeName: mkScope:
-        prev.${scopeName}.overrideScope
-          (scopeFinal: _scopePrev: mkScope scopeFinal))
-      scopes;
-
-  applyScopesProject = pkgs: scopes:
-    builtins.mapAttrs
-      (scopeName: mkScope: mkScope pkgs.${scopeName})
-      scopes;
+  loadDefs = pkgSet: defs:
+    builtins.mapAttrs (_: path: pkgSet.callPackage path { }) defs;
 in {
-  overlay = final: prev:
-    defs.topLevel final
-    // applyScopesOverlay final prev defs.scopes;
+  exportTopLevel = pkgs:
+    loadDefs pkgs registry.topLevel;
 
-  project = pkgs:
-    defs.topLevel pkgs
-    // applyScopesProject pkgs defs.scopes;
+  overlay = final: prev:
+    loadDefs final registry.topLevel
+    // builtins.mapAttrs
+      (scopeName: defs:
+        prev.${scopeName}.overrideScope
+          (scopeFinal: _scopePrev: loadDefs scopeFinal defs))
+      registry.scopes;
 }
