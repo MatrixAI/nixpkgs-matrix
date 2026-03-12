@@ -17,8 +17,6 @@ Matrix AI public Nix package and module distribution flake.
   - [Adding packages](#adding-packages)
   - [Module placeholders](#module-placeholders)
   - [Cross-repo consumption checks](#cross-repo-consumption-checks)
-  - [Repository structure](#repository-structure)
-- [License](#license)
 
 ## What this flake exports
 
@@ -171,14 +169,14 @@ Examples are provided directly in this README instead of exported templates.
 
 Direct convenience output usage:
 
-```bash
-nix build github:MatrixAI/nixpkgs-matrix#packages.x86_64-linux.polykey-cli
+```sh
+nix build 'github:MatrixAI/nixpkgs-matrix#packages.x86_64-linux.matrixai-public-hello'
 ```
 
 Compatibility package-set usage:
 
-```bash
-nix build github:MatrixAI/nixpkgs-matrix#legacyPackages.x86_64-linux.polykey-cli
+```sh
+nix build 'github:MatrixAI/nixpkgs-matrix#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
 
 ## Development
@@ -195,7 +193,7 @@ Policy model:
 
 Use one control script:
 
-```bash
+```sh
 ./scripts/nixpkgs-pin-policy.sh info
 ./scripts/nixpkgs-pin-policy.sh info --tracking-ref refs/heads/nixos-unstable
 ./scripts/nixpkgs-pin-policy.sh update <commit-sha>
@@ -203,12 +201,21 @@ Use one control script:
 
 Behavior:
 
-- `info` shows explicit pin policy, lock integrity, and comparison against upstream `refs/heads/nixos-unstable`.
+- `info` shows explicit pin policy, lock integrity, and full upstream topology for the selected tracking ref:
+  - retrieval mode is API-first (GitHub compare + commit endpoints),
+  - fallback mode uses git graph analysis when API retrieval is unavailable,
+  - cache location is `tmp/nixpkgs-pin-policy/` (API + git cache),
+  - ahead count (pin-only commits),
+  - behind count (tracking-only commits),
+  - merge-base commit + merge-base date,
+  - pinned commit date,
+  - tracking-head date,
+  - age delta in days (`tracking-head date - pinned commit date`).
 - `update <commit-sha>` requires an explicit commit choice, refuses if that SHA cannot be found in upstream nixpkgs, rewrites the managed nixpkgs block in `flake.nix`, refreshes `flake.lock`, and verifies lock rev equality.
 
 After policy update in this repo, downstream consumers (for example private repo) should update their input lock:
 
-```bash
+```sh
 nix flake update nixpkgs-matrix
 nix flake check
 ```
@@ -225,10 +232,10 @@ nix flake check
 
 Useful checks:
 
-```bash
+```sh
 nix flake show
-nix build .#packages.x86_64-linux.polykey-cli
-nix build .#legacyPackages.x86_64-linux.polykey-cli
+nix build '.#packages.x86_64-linux.matrixai-public-hello'
+nix build '.#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
 
 ### Module placeholders
@@ -248,13 +255,13 @@ The contract is on the exported entrypoints and aliasing behavior:
 
 When iterating against `nixpkgs-matrix-private`, run from the private checkout:
 
-```bash
+```sh
 nix flake check --override-input nixpkgs-matrix ../nixpkgs-matrix
 ```
 
 For lock-based validation in private:
 
-```bash
+```sh
 nix flake update nixpkgs-matrix
 nix flake check
 ```
