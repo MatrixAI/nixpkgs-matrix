@@ -277,90 +277,33 @@ is_cache_fresh() {
 json_field_string() {
   local json_file="$1"
   local field="$2"
-
-  awk -v field="$field" '
-    {
-      line = $0;
-      pattern = "\"" field "\"[[:space:]]*:[[:space:]]*\"";
-      if (match(line, pattern)) {
-        sub("^.*\"" field "\"[[:space:]]*:[[:space:]]*\"", "", line);
-        sub("\".*$", "", line);
-        print line;
-        exit 0;
-      }
-    }
-    END { exit 1 }
-  ' "$json_file" 2>/dev/null
-}
-
-json_first_sha_after_key() {
-  local json_file="$1"
-  local key="$2"
-
-  awk -v key="$key" '
-    BEGIN {
-      in_target = 0;
-    }
-    {
-      line = $0;
-      if (in_target == 0 && index(line, "\"" key "\"") > 0) {
-        in_target = 1;
-        next;
-      }
-      if (in_target == 1 && line ~ /"sha"[[:space:]]*:[[:space:]]*"/) {
-        sub("^.*\"sha\"[[:space:]]*:[[:space:]]*\"", "", line);
-        sub("\".*$", "", line);
-        print line;
-        exit 0;
-      }
-    }
-    END { exit 1 }
-  ' "$json_file" 2>/dev/null
-}
-
-json_first_date_after_key() {
-  local json_file="$1"
-  local key="$2"
-
-  awk -v key="$key" '
-    BEGIN {
-      in_target = 0;
-    }
-    {
-      line = $0;
-      if (in_target == 0 && index(line, "\"" key "\"") > 0) {
-        in_target = 1;
-        next;
-      }
-      if (in_target == 1 && line ~ /"date"[[:space:]]*:[[:space:]]*"/) {
-        sub("^.*\"date\"[[:space:]]*:[[:space:]]*\"", "", line);
-        sub("\".*$", "", line);
-        print line;
-        exit 0;
-      }
-    }
-    END { exit 1 }
-  ' "$json_file" 2>/dev/null
+  jq -r --arg f "$field" '.[$f] // empty' "$json_file" 2>/dev/null
 }
 
 json_field_int() {
   local json_file="$1"
   local field="$2"
+  jq -r --arg f "$field" '.[$f] // empty' "$json_file" 2>/dev/null
+}
 
-  awk -v field="$field" '
-    {
-      line = $0;
-      pattern = "\"" field "\"[[:space:]]*:[[:space:]]*[0-9]+";
-      if (match(line, pattern)) {
-        sub("^.*\"" field "\"[[:space:]]*:[[:space:]]*", "", line);
-        if (match(line, /^[0-9]+/)) {
-          print substr(line, RSTART, RLENGTH);
-          exit 0;
-        }
-      }
-    }
-    END { exit 1 }
-  ' "$json_file" 2>/dev/null
+json_merge_base_sha() {
+  local json_file="$1"
+  jq -r '.merge_base_commit.sha // empty' "$json_file" 2>/dev/null
+}
+
+json_base_commit_date() {
+  local json_file="$1"
+  jq -r '.base_commit.committer.date // .base_commit.author.date // empty' "$json_file" 2>/dev/null
+}
+
+json_merge_base_date() {
+  local json_file="$1"
+  jq -r '.merge_base_commit.committer.date // .merge_base_commit.author.date // empty' "$json_file" 2>/dev/null
+}
+
+json_commit_date() {
+  local json_file="$1"
+  jq -r '.commit.committer.date // .commit.author.date // empty' "$json_file" 2>/dev/null
 }
 
 http_fetch_to_file() {
@@ -487,7 +430,7 @@ collect_upstream_topology_api() {
   ahead="$(json_field_int "$compare_file" ahead_by || true)"
   behind="$(json_field_int "$compare_file" behind_by || true)"
   base_status="$(json_field_string "$compare_file" status || true)"
-  merge_base="$(json_first_sha_after_key "$compare_file" merge_base_commit || true)"
+  merge_base="$(json_merge_base_sha "$compare_file" || true)"
 
   if [[ -z "$ahead" || -z "$behind" ]]; then
     return 1
@@ -497,18 +440,18 @@ collect_upstream_topology_api() {
   TOPOLOGY_BEHIND_COUNT="$ahead"
   TOPOLOGY_MERGE_BASE="$merge_base"
 
-  TOPOLOGY_PIN_DATE="$(json_first_date_after_key "$compare_file" base_commit || true)"
-  TOPOLOGY_MERGE_BASE_DATE="$(json_first_date_after_key "$compare_file" merge_base_commit || true)"
+  TOPOLOGY_PIN_DATE="$(json_base_commit_date "$compare_file" || true)"
+  TOPOLOGY_MERGE_BASE_DATE="$(json_merge_base_date "$compare_file" || true)"
 
   head_commit_file="$(fetch_commit_json_cached "$pin_owner" "$pin_repo" "$upstream_head" 2>/dev/null)" || true
   if [[ -n "$head_commit_file" ]]; then
-    TOPOLOGY_HEAD_DATE="$(json_first_date_after_key "$head_commit_file" commit || true)"
+      TOPOLOGY_HEAD_DATE="$(json_commit_date "$head_commit_file" || true)"
   fi
 
   if [[ -z "$TOPOLOGY_PIN_DATE" ]]; then
     pin_commit_file="$(fetch_commit_json_cached "$pin_owner" "$pin_repo" "$pin_rev" 2>/dev/null)" || true
     if [[ -n "$pin_commit_file" ]]; then
-      TOPOLOGY_PIN_DATE="$(json_first_date_after_key "$pin_commit_file" commit || true)"
+      TOPOLOGY_PIN_DATE="$(json_commit_date "$pin_commit_file" || true)"
     fi
   fi
 
@@ -516,7 +459,7 @@ collect_upstream_topology_api() {
     local merge_commit_file
     merge_commit_file="$(fetch_commit_json_cached "$pin_owner" "$pin_repo" "$merge_base" 2>/dev/null)" || true
     if [[ -n "$merge_commit_file" ]]; then
-      TOPOLOGY_MERGE_BASE_DATE="$(json_first_date_after_key "$merge_commit_file" commit || true)"
+      TOPOLOGY_MERGE_BASE_DATE="$(json_commit_date "$merge_commit_file" || true)"
     fi
   fi
 
@@ -793,6 +736,10 @@ main() {
 
   if ! command -v date >/dev/null 2>&1; then
     die "date command not found"
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    die "jq command not found"
   fi
 
   if [[ ! -f "$LOCK_FILE" ]]; then
