@@ -49,6 +49,16 @@
       homeModulesSet = {
         default = homeModule;
       };
+
+      templatesOss = {
+        path = ./templates/oss;
+        description = "Minimal flake-parts starter consuming nixpkgs-matrix via lib.mkPkgs";
+      };
+
+      templatesSet = {
+        oss = templatesOss;
+        default = templatesOss;
+      };
     in
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ system ];
@@ -62,6 +72,8 @@
 
         packages.${system} = topLevelPackages;
 
+        templates = templatesSet;
+
         checks.${system} = import ./checks/default.nix {
           lib = nixpkgs.lib;
           inherit
@@ -72,6 +84,7 @@
             topLevelPackages
             nixosModule
             homeModule
+            templatesSet
             ;
           legacyPackages = pkgs;
         };
@@ -86,6 +99,7 @@
           packages = [
             pkgs.nix
             pkgs.git
+            pkgs.jq
             pkgs.gnugrep
             pkgs.gawk
             pkgs.coreutils
