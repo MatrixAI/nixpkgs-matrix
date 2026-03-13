@@ -30,7 +30,8 @@ Read these files in order before editing:
 5. `overlays/default.nix`
 6. `modules/nixos/default.nix`
 7. `modules/home/default.nix`
-8. `README.md`
+8. `templates/oss/flake.nix`
+9. `README.md`
 
 ## Public API contract surface
 
@@ -40,6 +41,8 @@ The contract is the `outputs` shape in `flake.nix`:
 - `overlays.default`
 - `legacyPackages.<system>`
 - `packages.<system>`
+- `templates.default`
+- `templates.oss`
 - `nixosModules.default`
 - `homeModules.default`
 - `checks.<system>` (local contract/build/smoke/module/pin policy checks)
@@ -110,7 +113,7 @@ Current module files are placeholders. Keep exported names stable even when payl
 
 Consumer usage examples live in `README.md`.
 
-- This repo does not rely on exported flake templates.
+- This repo exports exactly one minimal starter template for OSS consumers (`templates.oss`, aliased as `templates.default`).
 - Internal and external usage patterns must be documented inline in `README.md`.
 - If consumer patterns change, update `README.md` in the same change set.
 
@@ -121,8 +124,9 @@ When changing architecture-sensitive files, verify all of:
 1. `nix flake show` reflects intended output shape.
 2. `lib.mkPkgs` still produces a package set with expected overlay ordering.
 3. `packages.<system>` and `legacyPackages.<system>` still resolve expected packages.
-4. Module exports remain present (`nixosModules.default`, `homeModules.default`) and continue to evaluate.
-5. `README.md` remains accurate for consumers.
+4. Template exports remain stable (`templates.default`, `templates.oss`) and starter init works.
+5. Module exports remain present (`nixosModules.default`, `homeModules.default`) and continue to evaluate.
+6. `README.md` remains accurate for consumers.
 
 ## Framework and systems policy
 
@@ -135,4 +139,4 @@ When changing architecture-sensitive files, verify all of:
 - Splitting package truth across multiple competing registries.
 - Bypassing `lib.mkPkgs` as the primary constructor path in documentation.
 - Introducing public API drift without updating `README.md` and this runbook.
-- Re-introducing template-export assumptions into the public output contract.
+- Expanding template surface without an explicit contract decision.
