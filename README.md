@@ -30,11 +30,13 @@ Matrix AI public Nix package and module distribution flake.
 | `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel` path). |
 | `nixosModules.default` | Public NixOS module entrypoint. |
 | `homeModules.default` | Public Home Manager module entrypoint. |
-| `homeManagerModules` | Compatibility alias to `homeModules`. |
+| `checks.${system}` | Local contract/policy/smoke gates consumed by `nix flake check`. |
+| `devShells.${system}.default` | Developer shell for local iteration ergonomics. |
 
 Notes:
 
 - `packages` and `legacyPackages` are currently materialized for `x86_64-linux` in `flake.nix`.
+- `checks` and `devShells` are currently materialized for `x86_64-linux` in `flake.nix`.
 - Flake templates are intentionally not exported.
 
 ## Architecture model
@@ -127,8 +129,6 @@ Examples are provided directly in this README instead of exported templates.
 
       # Home Manager module consumption:
       # imports = [ nixpkgs-matrix.homeModules.default ];
-      # Compatibility alias:
-      # imports = [ nixpkgs-matrix.homeManagerModules.default ];
     };
 }
 ```
@@ -181,6 +181,37 @@ nix build 'github:MatrixAI/nixpkgs-matrix#legacyPackages.x86_64-linux.matrixai-p
 
 ## Development
 
+### Framework baseline
+
+`flake.nix` now uses flake-parts as the composition framework while preserving public output contract names.
+
+System policy remains explicit and currently single-system (`x86_64-linux`). Multi-system expansion remains a separate policy decision.
+
+### Developer shell baseline
+
+`devShells.${system}.default` is intentionally curated for repository maintenance workflows (not package-universe materialization).
+
+It includes only tooling needed by policy/check scripts, such as:
+
+- `nix`
+- `git`
+- GNU text/core tooling (`awk`, `grep`, `sed`, `coreutils`, `findutils`)
+- `curl` / `wget`
+
+This does **not** install all package definitions from `pkgs/default.nix`.
+
+### Local checks baseline
+
+This repository treats `nix flake check` as the canonical local gate.
+
+Current checks include:
+
+- `checks.${system}.contract-outputs`
+- `checks.${system}.contract-packages`
+- `checks.${system}.contract-modules`
+- `checks.${system}.smoke-hello`
+- `checks.${system}.policy-pin`
+
 ### Nixpkgs pin policy
 
 Updating nixpkgs is treated as a policy-level change because it effectively repins the package universe.
@@ -212,6 +243,16 @@ Behavior:
   - tracking-head date,
   - age delta in days (`tracking-head date - pinned commit date`).
 - `update <commit-sha>` requires an explicit commit choice, refuses if that SHA cannot be found in upstream nixpkgs, rewrites the managed nixpkgs block in `flake.nix`, refreshes `flake.lock`, and verifies lock rev equality.
+
+### External pin sources policy
+
+Externally pinned flake package sources are governed directly in `checks/default.nix` by the `policy-pin` check baseline.
+
+Current baseline policy:
+
+- allowlisted `builtins.getFlake` usage is restricted to `pkgs/top-level/polykey-cli.nix`,
+- each allowlisted usage must include a commit-hash-pinned `github:<owner>/<repo>/<sha>` style ref,
+- local check `checks.${system}.policy-pin` enforces allowlist and pin-shape invariants.
 
 After policy update in this repo, downstream consumers (for example private repo) should update their input lock:
 
@@ -249,7 +290,6 @@ The contract is on the exported entrypoints and aliasing behavior:
 
 - `nixosModules.default`
 - `homeModules.default`
-- `homeManagerModules = homeModules`
 
 ### Cross-repo consumption checks
 

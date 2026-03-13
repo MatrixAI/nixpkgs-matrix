@@ -17,9 +17,16 @@ let
 
   loadDefs = pkgSet: defs:
     builtins.mapAttrs (_: path: pkgSet.callPackage path { }) defs;
+
+  topLevelNames = builtins.attrNames registry.topLevel;
 in {
   exportTopLevel = pkgs:
-    loadDefs pkgs registry.topLevel;
+    builtins.listToAttrs (map
+      (name: {
+        inherit name;
+        value = pkgs.${name};
+      })
+      topLevelNames);
 
   overlay = final: prev:
     loadDefs final registry.topLevel

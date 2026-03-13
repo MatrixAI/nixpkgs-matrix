@@ -42,7 +42,8 @@ The contract is the `outputs` shape in `flake.nix`:
 - `packages.<system>`
 - `nixosModules.default`
 - `homeModules.default`
-- `homeManagerModules` (alias of `homeModules`)
+- `checks.<system>` (local contract/build/smoke/module/pin policy checks)
+- `devShells.<system>.default` (developer ergonomics)
 
 ### `lib` expectations
 
@@ -102,7 +103,6 @@ Module entrypoints are exported from `flake.nix`:
 
 - `nixosModules.default` -> `modules/nixos/default.nix`
 - `homeModules.default` -> `modules/home/default.nix`
-- `homeManagerModules = homeModules`
 
 Current module files are placeholders. Keep exported names stable even when payloads evolve.
 
@@ -121,8 +121,14 @@ When changing architecture-sensitive files, verify all of:
 1. `nix flake show` reflects intended output shape.
 2. `lib.mkPkgs` still produces a package set with expected overlay ordering.
 3. `packages.<system>` and `legacyPackages.<system>` still resolve expected packages.
-4. Module exports remain present and alias behavior (`homeManagerModules = homeModules`) remains valid.
+4. Module exports remain present (`nixosModules.default`, `homeModules.default`) and continue to evaluate.
 5. `README.md` remains accurate for consumers.
+
+## Framework and systems policy
+
+- Flake composition uses flake-parts for structured output assembly.
+- Current systems policy is explicitly single-system (`x86_64-linux`).
+- Multi-system expansion is a separate policy decision and must not be bundled into structural migrations.
 
 ## Anti-patterns
 

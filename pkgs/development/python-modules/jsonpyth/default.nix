@@ -8,7 +8,7 @@
 buildPythonPackage rec {
   pname = "jsonpyth";
   version = "0.1.3";
-  pyproject = false;
+  format = "setuptools";
 
   disabled = pythonOlder "3.5";
 
