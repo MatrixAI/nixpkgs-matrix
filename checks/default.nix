@@ -7,6 +7,7 @@
 , legacyPackages
 , nixosModule
 , homeModule
+, templatesSet
 }:
 
 {
@@ -18,6 +19,7 @@
       defaultOverlay
       topLevelPackages
       legacyPackages
+      templatesSet
       ;
   };
 

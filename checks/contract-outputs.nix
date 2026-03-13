@@ -4,6 +4,7 @@
 , defaultOverlay
 , topLevelPackages
 , legacyPackages
+, templatesSet
 }:
 
 let
@@ -18,6 +19,12 @@ let
     assert builtins.hasAttr "python3Packages" legacyPackages;
     assert builtins.hasAttr "jsonpyth" legacyPackages.python3Packages;
     assert builtins.hasAttr "procpath" legacyPackages.python3Packages;
+    assert builtins.isAttrs templatesSet;
+    assert builtins.hasAttr "oss" templatesSet;
+    assert builtins.hasAttr "default" templatesSet;
+    assert templatesSet.default.path == templatesSet.oss.path;
+    assert templatesSet.default.path == ../templates/oss;
+    assert builtins.pathExists (templatesSet.default.path + "/flake.nix");
     true;
 in
 pkgs.runCommand "contract-outputs" { } ''
