@@ -4,48 +4,68 @@ Matrix AI public Nix package and module distribution flake.
 
 ## Contents
 
-- [What this flake exports](#what-this-flake-exports)
-- [Architecture model](#architecture-model)
+- [Usage](#usage)
+  - [What this flake exports](#what-this-flake-exports)
+  - [Start from the OSS template](#start-from-the-oss-template)
   - [Constructor path (`lib.mkPkgs`)](#constructor-path-libmkpkgs)
-  - [Package registry and projection (`pkgs/default.nix`)](#package-registry-and-projection-pkgsdefaultnix)
-  - [Overlay adapter (`overlays/default.nix`)](#overlay-adapter-overlaysdefaultnix)
-- [Consumer usage examples (replaces flake templates)](#consumer-usage-examples-replaces-flake-templates)
-  - [Internal (Matrix registry)](#internal-matrix-registry)
-  - [External / OSS (GitHub input)](#external--oss-github-input)
-- [Why templates are not exported](#why-templates-are-not-exported)
+  - [Package registry and overlay model](#package-registry-and-overlay-model)
+  - [Direct output usage](#direct-output-usage)
 - [Development](#development)
+  - [Local developer shell](#local-developer-shell)
+  - [Canonical local test workflow](#canonical-local-test-workflow)
+  - [Pin governance workflows](#pin-governance-workflows)
+  - [Helper scripts for maintainers](#helper-scripts-for-maintainers)
   - [Adding packages](#adding-packages)
   - [Module placeholders](#module-placeholders)
   - [Cross-repo consumption checks](#cross-repo-consumption-checks)
 
-## What this flake exports
+## Usage
 
-`nixpkgs-matrix` is the public producer flake. The contract surface is defined by `outputs` in `flake.nix`.
+### What this flake exports
+
+The public contract is the `outputs` shape in `flake.nix`.
 
 | Output | Purpose |
 | --- | --- |
 | `lib` | Public helper scope from `lib/default.nix`; includes upstream `nixpkgs.lib` under `lib.lib` and constructor helpers such as `lib.mkPkgs`. |
 | `overlays.default` | Canonical project overlay from `overlays/default.nix`. |
 | `legacyPackages.${system}` | Compatibility package set produced via `lib.mkPkgs`. |
-| `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel` path). |
+| `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel`). |
+| `templates.default` | Minimal OSS starter template (alias of `templates.oss`). |
+| `templates.oss` | Minimal OSS starter template using flake-parts and `nixpkgs-matrix.lib.mkPkgs`. |
 | `nixosModules.default` | Public NixOS module entrypoint. |
 | `homeModules.default` | Public Home Manager module entrypoint. |
 | `checks.${system}` | Local contract/policy/smoke gates consumed by `nix flake check`. |
-| `devShells.${system}.default` | Developer shell for local iteration ergonomics. |
+| `devShells.${system}.default` | Developer shell for local repository maintenance workflows. |
 
-Notes:
+Current policy is explicit single-system materialization (`x86_64-linux`).
 
-- `packages` and `legacyPackages` are currently materialized for `x86_64-linux` in `flake.nix`.
-- `checks` and `devShells` are currently materialized for `x86_64-linux` in `flake.nix`.
-- Flake templates are intentionally not exported.
+### Start from the OSS template
 
-## Architecture model
+Initialize a new project using the exported starter:
+
+```sh
+nix flake init -t github:MatrixAI/nixpkgs-matrix#oss
+```
+
+Equivalent alias:
+
+```sh
+nix flake init -t github:MatrixAI/nixpkgs-matrix#default
+```
+
+The template emits one minimal `flake.nix` that:
+
+1. uses flake-parts,
+2. imports `nixpkgs-matrix` from GitHub,
+3. constructs `pkgs` through `nixpkgs-matrix.lib.mkPkgs`,
+4. defines a small `devShell` consuming `nixpkgs-matrix` packages.
 
 ### Constructor path (`lib.mkPkgs`)
 
 `lib.mkPkgs` is the canonical constructor for downstream composition.
 
-Defined in `lib/mkPkgs.nix`, it applies overlay ordering as:
+Overlay ordering in `lib/mkPkgs.nix` is:
 
 1. upstream nixpkgs constructor,
 2. project default overlay,
@@ -60,169 +80,56 @@ mkPkgsUpstream {
 }
 ```
 
-This ordering is the intended composition contract for consumers.
+### Package registry and overlay model
 
-### Package registry and projection (`pkgs/default.nix`)
+`pkgs/default.nix` is the package registry and projection hub:
 
-`pkgs/default.nix` is the package registry and projection hub.
+- `registry.topLevel` maps top-level package names to package files,
+- `registry.scopes` maps scoped package sets (currently `python3Packages`),
+- `exportTopLevel` projects flat installables to `packages.${system}`,
+- `overlay` wires top-level + scoped entries into `overlays.default` / `legacyPackages.${system}`.
 
-- `registry.topLevel` maps top-level package names to package files.
-- `registry.scopes` maps scoped package sets (currently `python3Packages`) to package files.
-- `exportTopLevel` projects only top-level installables into `packages.${system}`.
-- `overlay` applies top-level and scoped registrations into the overlay path (`overlays.default`), which is reflected in `legacyPackages.${system}`.
-
-The file intentionally uses an empty dependency set (`{ }:`).
-
-### Overlay adapter (`overlays/default.nix`)
-
-`overlays/default.nix` imports `pkgs/default.nix` and delegates to its `overlay` function:
-
-```nix
-final: prev:
-let
-  packageDefs = import ../pkgs { };
-in
-packageDefs.overlay final prev
-```
-
-This keeps the source of package truth in one place (`pkgs/default.nix`) while exposing one canonical overlay.
-
-## Consumer usage examples (replaces flake templates)
-
-Examples are provided directly in this README instead of exported templates.
-
-### Internal (Matrix registry)
-
-```nix
-{
-  description = "Internal consumer using Matrix registry";
-
-  nixConfig = {
-    flake-registry = "https://nix.matrix.ai/registry/flake-registry.json";
-    experimental-features = [ "nix-command" "flakes" ];
-  };
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    nixpkgs-matrix.url = "flake:nixpkgs-matrix";
-  };
-
-  outputs = { nixpkgs, nixpkgs-matrix, ... }:
-    let
-      system = builtins.currentSystem or "x86_64-linux";
-      pkgs = nixpkgs-matrix.lib.mkPkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-    in {
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs."matrixai-public-hello" ];
-      };
-
-      nixosConfigurations.example = nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [
-          nixpkgs-matrix.nixosModules.default
-          ./configuration.nix
-        ];
-      };
-
-      # Home Manager module consumption:
-      # imports = [ nixpkgs-matrix.homeModules.default ];
-    };
-}
-```
-
-### External / OSS (GitHub input)
-
-```nix
-{
-  description = "External consumer using GitHub";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    nixpkgs-matrix.url = "github:MatrixAI/nixpkgs-matrix";
-  };
-
-  outputs = { nixpkgs, nixpkgs-matrix, ... }:
-    let
-      system = builtins.currentSystem or "x86_64-linux";
-      pkgs = nixpkgs-matrix.lib.mkPkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-    in {
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs."polykey-cli" ];
-      };
-
-      nixosConfigurations.example = nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [
-          nixpkgs-matrix.nixosModules.default
-          ./configuration.nix
-        ];
-      };
-    };
-}
-```
-
-Direct convenience output usage:
+### Direct output usage
 
 ```sh
 nix build 'github:MatrixAI/nixpkgs-matrix#packages.x86_64-linux.matrixai-public-hello'
-```
-
-Compatibility package-set usage:
-
-```sh
 nix build 'github:MatrixAI/nixpkgs-matrix#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
 
 ## Development
 
-### Framework baseline
+### Local developer shell
 
-`flake.nix` now uses flake-parts as the composition framework while preserving public output contract names.
+Enter the repository maintenance shell:
 
-System policy remains explicit and currently single-system (`x86_64-linux`). Multi-system expansion remains a separate policy decision.
+```sh
+nix develop
+```
 
-### Developer shell baseline
+The shell is intentionally curated for this repository’s maintenance workflows and includes tools like `nix`, `git`, `jq`, GNU text/core utilities, `curl`, and `wget`.
 
-`devShells.${system}.default` is intentionally curated for repository maintenance workflows (not package-universe materialization).
+### Canonical local test workflow
 
-It includes only tooling needed by policy/check scripts, such as:
+Use these as the standard local gates:
 
-- `nix`
-- `git`
-- GNU text/core tooling (`awk`, `grep`, `sed`, `coreutils`, `findutils`)
-- `curl` / `wget`
+```sh
+nix flake show path:. --no-write-lock-file
+nix flake check path:. --no-write-lock-file
+```
 
-This does **not** install all package definitions from `pkgs/default.nix`.
-
-### Local checks baseline
-
-This repository treats `nix flake check` as the canonical local gate.
-
-Current checks include:
+Current checks:
 
 - `checks.${system}.contract-outputs`
 - `checks.${system}.contract-packages`
 - `checks.${system}.contract-modules`
-- `checks.${system}.smoke-hello`
 - `checks.${system}.policy-pin`
+- `checks.${system}.smoke-hello`
 
-### Nixpkgs pin policy
+### Pin governance workflows
 
-Updating nixpkgs is treated as a policy-level change because it effectively repins the package universe.
+#### Upstream nixpkgs pin workflow
 
-Policy model:
-
-- Explicit pin intent lives in a managed block in `flake.nix` (`inputs.nixpkgs`, between `# BEGIN: nixpkgs-pin` and `# END: nixpkgs-pin`).
-- `scripts/nixpkgs-pin-policy.sh` is the sole policy mutation path and preflights the managed block before rewriting.
-- Content integrity is enforced by `flake.lock` (`nodes.nixpkgs.locked.rev` + `nodes.nixpkgs.locked.narHash`).
-
-Use one control script:
+Use:
 
 ```sh
 ./scripts/nixpkgs-pin-policy.sh info
@@ -230,51 +137,59 @@ Use one control script:
 ./scripts/nixpkgs-pin-policy.sh update <commit-sha>
 ```
 
-Behavior:
+`update` rewrites the managed nixpkgs block in `flake.nix`, refreshes `flake.lock`, and verifies rev consistency.
 
-- `info` shows explicit pin policy, lock integrity, and full upstream topology for the selected tracking ref:
-  - retrieval mode is API-first (GitHub compare + commit endpoints),
-  - fallback mode uses git graph analysis when API retrieval is unavailable,
-  - cache location is `tmp/nixpkgs-pin-policy/` (API + git cache),
-  - ahead count (pin-only commits),
-  - behind count (tracking-only commits),
-  - merge-base commit + merge-base date,
-  - pinned commit date,
-  - tracking-head date,
-  - age delta in days (`tracking-head date - pinned commit date`).
-- `update <commit-sha>` requires an explicit commit choice, refuses if that SHA cannot be found in upstream nixpkgs, rewrites the managed nixpkgs block in `flake.nix`, refreshes `flake.lock`, and verifies lock rev equality.
+#### External flake pin baseline
 
-### External pin sources policy
+External `builtins.getFlake` usage is allowlisted and enforced by `checks.${system}.policy-pin`.
 
-Externally pinned flake package sources are governed directly in `checks/default.nix` by the `policy-pin` check baseline.
+Allowlist metadata lives in:
 
-Current baseline policy:
+- `plans/pin-sources-policy.nix`
 
-- allowlisted `builtins.getFlake` usage is restricted to `pkgs/top-level/polykey-cli.nix`,
-- each allowlisted usage must include a commit-hash-pinned `github:<owner>/<repo>/<sha>` style ref,
-- local check `checks.${system}.policy-pin` enforces allowlist and pin-shape invariants.
+### Helper scripts for maintainers
 
-After policy update in this repo, downstream consumers (for example private repo) should update their input lock:
+These scripts improve maintainer decision-making inside this repository. They are ergonomics helpers, not the contract authority (the contract authority remains flake outputs and checks).
+
+1. External pin lifecycle visibility:
 
 ```sh
-nix flake update nixpkgs-matrix
-nix flake check
+./scripts/external-pin-lifecycle.sh info
+./scripts/external-pin-lifecycle.sh info --tracking-ref refs/heads/main
 ```
+
+Reports include:
+
+- allowlisted entry metadata,
+- pinned commit date,
+- pin age in days,
+- review cadence and due state,
+- tracking branch head SHA visibility.
+
+2. Package version intelligence for policy decisions:
+
+```sh
+./scripts/package-version-intel.sh current vscodium
+./scripts/package-version-intel.sh compare vscodium --candidate-ref refs/heads/nixos-unstable
+./scripts/package-version-intel.sh compare matrixai-public-hello --system x86_64-linux --candidate-ref <commit-sha>
+```
+
+Reports include current pinned metadata and candidate metadata (`version`, `pname`, `name`) plus a simple changed/unchanged status.
 
 ### Adding packages
 
 1. Add or update package definitions under `pkgs/top-level` or `pkgs/development/python-modules`.
-2. Register package paths in `pkgs/default.nix` under either:
+2. Register package paths in `pkgs/default.nix` under:
    - `registry.topLevel`, or
    - `registry.scopes.<scopeName>`.
 3. Validate both surfaces:
-   - `packages.${system}` via `exportTopLevel` (flat top-level installables only),
-   - `overlays.default` / `legacyPackages.${system}` via overlay composition (including scopes such as `python3Packages`).
+   - `packages.${system}` via `exportTopLevel`,
+   - `legacyPackages.${system}` via overlay composition.
 
 Useful checks:
 
 ```sh
-nix flake show
+nix flake show path:. --no-write-lock-file
 nix build '.#packages.x86_64-linux.matrixai-public-hello'
 nix build '.#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
@@ -286,14 +201,14 @@ Current module files are intentionally minimal placeholders:
 - `modules/nixos/default.nix`
 - `modules/home/default.nix`
 
-The contract is on the exported entrypoints and aliasing behavior:
+Stable exported entrypoints:
 
 - `nixosModules.default`
 - `homeModules.default`
 
 ### Cross-repo consumption checks
 
-When iterating against `nixpkgs-matrix-private`, run from the private checkout:
+When iterating with `nixpkgs-matrix-private`, run from the private checkout:
 
 ```sh
 nix flake check --override-input nixpkgs-matrix ../nixpkgs-matrix
