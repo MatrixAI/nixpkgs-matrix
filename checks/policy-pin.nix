@@ -1,12 +1,7 @@
 { pkgs }:
 
 let
-  pinPolicyAllowlist = {
-    "pkgs/top-level/polykey-cli.nix" = {
-      rationale = "curated downstream package universe includes external flake pin for polykey-cli";
-      reviewCadenceDays = 30;
-    };
-  };
+  pinPolicyAllowlist = import ./policy-pin-allowlist.nix;
 
   repoSrc = builtins.path {
     path = ../.;
@@ -21,14 +16,30 @@ let
     builtins.all
       (relPath: builtins.pathExists (../. + "/${relPath}"))
       allowlistPaths;
+
+  allowlistMetadataInvariant =
+    builtins.all
+      (relPath:
+        let
+          entry = pinPolicyAllowlist.${relPath};
+        in
+        builtins.isAttrs entry
+        && builtins.hasAttr "rationale" entry
+        && builtins.isString entry.rationale
+        && builtins.hasAttr "reviewCadenceDays" entry
+        && builtins.isInt entry.reviewCadenceDays
+        && entry.reviewCadenceDays > 0)
+      allowlistPaths;
+
+  allowlistCount = builtins.length allowlistPaths;
 in
 pkgs.runCommand "policy-pin" { src = repoSrc; } ''
   cd "$src"
 
-  ${if allowlistInvariant then "true" else "false"}
+  ${if allowlistInvariant && allowlistMetadataInvariant then "true" else "false"}
 
   count="$(grep -R --include='*.nix' -n 'builtins.getFlake' ./pkgs | wc -l)"
-  test "$count" -eq 1
+  test "$count" -eq "${toString allowlistCount}"
 
   for rel_path in ${allowlistPathsText}; do
     grep -q 'builtins.getFlake' "$rel_path"
@@ -40,7 +51,7 @@ pkgs.runCommand "policy-pin" { src = repoSrc; } ''
 
   grep -R --include='*.nix' -n 'builtins.getFlake' ./pkgs > "$tmp_hits"
 
-  allowlist_count="$(printf '%s\n' ${allowlistPathsText} | wc -l)"
+  allowlist_count="${toString allowlistCount}"
   usage_count="$(wc -l < "$tmp_hits")"
   test "$usage_count" -eq "$allowlist_count"
 

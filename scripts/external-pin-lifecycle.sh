@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ALLOWLIST_FILE="$ROOT_DIR/plans/pin-sources-policy.nix"
+ALLOWLIST_FILE="$ROOT_DIR/checks/policy-pin-allowlist.nix"
 
 DEFAULT_TRACKING_REF="refs/heads/main"
 
@@ -64,7 +64,7 @@ nix_eval_json() {
 }
 
 allowlist_json() {
-  nix_eval_json "(import ${ALLOWLIST_FILE}).builtinsGetFlake.allowlist"
+  nix_eval_json "import ${ALLOWLIST_FILE}"
 }
 
 extract_allowlist_keys() {
@@ -83,6 +83,15 @@ extract_review_days() {
   local allowlist="$1"
   local key="$2"
   jq -r --arg k "$key" '.[$k].reviewCadenceDays // empty' <<< "$allowlist"
+}
+
+extract_pinned_ref_from_path() {
+  local rel_path="$1"
+  local abs_path="$ROOT_DIR/$rel_path"
+
+  [[ -f "$abs_path" ]] || return 1
+
+  grep -Eo 'github:[^"[:space:]]+/[0-9a-f]{40}' "$abs_path" | head -n 1
 }
 
 fetch_json() {
@@ -170,15 +179,15 @@ print_info() {
   while IFS= read -r key; do
     [[ -n "$key" ]] || continue
 
-    path="$(extract_field_line "$allowlist" "$key" path)"
-    ref="$(extract_field_line "$allowlist" "$key" ref)"
-    owner="$(extract_field_line "$allowlist" "$key" owner)"
+    path="$key"
     rationale="$(extract_field_line "$allowlist" "$key" rationale)"
     cadence="$(extract_review_days "$allowlist" "$key")"
 
     [[ -n "$path" ]] || die "missing path for allowlist key: $key"
+    [[ -f "$ROOT_DIR/$path" ]] || die "allowlisted path does not exist in repository: $path"
+    ref="$(extract_pinned_ref_from_path "$path" || true)"
+    [[ -n "$ref" ]] || die "missing commit-pinned github:<owner>/<repo>/<sha> ref in allowlisted file: $path"
     [[ -n "$ref" ]] || die "missing ref for allowlist key: $key"
-    [[ -n "$owner" ]] || die "missing owner for allowlist key: $key"
     [[ -n "$rationale" ]] || die "missing rationale for allowlist key: $key"
     [[ -n "$cadence" ]] || die "missing reviewCadenceDays for allowlist key: $key"
 
@@ -186,6 +195,7 @@ print_info() {
       repo_owner="${BASH_REMATCH[1]}"
       repo_name="${BASH_REMATCH[2]}"
       sha="${BASH_REMATCH[3]}"
+      owner="$repo_owner"
     else
       die "ref for $key is not commit pinned in github:<owner>/<repo>/<sha> form: $ref"
     fi
@@ -217,7 +227,7 @@ print_info() {
     tracking_head="$(printf '%s' "$tracking_tuple" | awk -F'|' '{print $2}')"
 
     echo "- $key"
-    echo "  owner (policy):       $owner"
+    echo "  owner (derived):      $owner"
     echo "  rationale:            $rationale"
     echo "  path:                 $path"
     echo "  ref:                  $ref"
