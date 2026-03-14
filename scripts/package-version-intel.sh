@@ -19,7 +19,7 @@ Usage:
   scripts/package-version-intel.sh compare <attr-path> [--candidate-ref <git-ref-or-sha>] [--system <system>]
 
 Description:
-  current  Show package metadata (version/pname/name) from current nixpkgs-matrix pinned nixpkgs.
+  current  Show package metadata (version/pname/name) from current nixpkgs-matrixai pinned nixpkgs.
   compare  Show current metadata and compare it against a candidate nixpkgs ref.
 
 Resolution model:

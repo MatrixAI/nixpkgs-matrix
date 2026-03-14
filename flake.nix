@@ -52,7 +52,7 @@
 
       templatesOss = {
         path = ./templates/oss;
-        description = "Minimal flake-parts starter consuming nixpkgs-matrix via lib.mkPkgs";
+        description = "Minimal flake-parts starter consuming nixpkgs-matrixai via lib.mkPkgs";
       };
 
       templatesSet = {

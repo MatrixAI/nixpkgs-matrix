@@ -1,4 +1,4 @@
-# nixpkgs-matrix
+# nixpkgs-matrixai
 
 Matrix AI public Nix package and module distribution flake.
 
@@ -32,7 +32,7 @@ The public contract is the `outputs` shape in `flake.nix`.
 | `legacyPackages.${system}` | Compatibility package set produced via `lib.mkPkgs`. |
 | `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel`). |
 | `templates.default` | Minimal OSS starter template (alias of `templates.oss`). |
-| `templates.oss` | Minimal OSS starter template using flake-parts and `nixpkgs-matrix.lib.mkPkgs`. |
+| `templates.oss` | Minimal OSS starter template using flake-parts and `nixpkgs-matrixai.lib.mkPkgs`. |
 | `nixosModules.default` | Public NixOS module entrypoint. |
 | `homeModules.default` | Public Home Manager module entrypoint. |
 | `checks.${system}` | Local contract/policy/smoke gates consumed by `nix flake check`. |
@@ -45,21 +45,21 @@ Current policy is explicit single-system materialization (`x86_64-linux`).
 Initialize a new project using the exported starter:
 
 ```sh
-nix flake init -t github:MatrixAI/nixpkgs-matrix#oss
+nix flake init -t github:MatrixAI/nixpkgs-matrixai#oss
 ```
 
 Equivalent alias:
 
 ```sh
-nix flake init -t github:MatrixAI/nixpkgs-matrix#default
+nix flake init -t github:MatrixAI/nixpkgs-matrixai#default
 ```
 
 The template emits one minimal `flake.nix` that:
 
 1. uses flake-parts,
-2. imports `nixpkgs-matrix` from GitHub,
-3. constructs `pkgs` through `nixpkgs-matrix.lib.mkPkgs`,
-4. defines a small `devShell` consuming `nixpkgs-matrix` packages.
+2. imports `nixpkgs-matrixai` from GitHub,
+3. constructs `pkgs` through `nixpkgs-matrixai.lib.mkPkgs`,
+4. defines a small `devShell` consuming `nixpkgs-matrixai` packages.
 
 ### Constructor path (`lib.mkPkgs`)
 
@@ -92,8 +92,8 @@ mkPkgsUpstream {
 ### Direct output usage
 
 ```sh
-nix build 'github:MatrixAI/nixpkgs-matrix#packages.x86_64-linux.matrixai-public-hello'
-nix build 'github:MatrixAI/nixpkgs-matrix#legacyPackages.x86_64-linux.matrixai-public-hello'
+nix build 'github:MatrixAI/nixpkgs-matrixai#packages.x86_64-linux.matrixai-public-hello'
+nix build 'github:MatrixAI/nixpkgs-matrixai#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
 
 ## Development
@@ -208,15 +208,15 @@ Stable exported entrypoints:
 
 ### Cross-repo consumption checks
 
-When iterating with `nixpkgs-matrix-private`, run from the private checkout:
+When iterating with `nixpkgs-matrixai-private`, run from the private checkout:
 
 ```sh
-nix flake check --override-input nixpkgs-matrix ../nixpkgs-matrix
+nix flake check --override-input nixpkgs-matrixai ../nixpkgs-matrixai
 ```
 
 For lock-based validation in private:
 
 ```sh
-nix flake update nixpkgs-matrix
+nix flake update nixpkgs-matrixai
 nix flake check
 ```

@@ -1,18 +1,18 @@
 {
-  description = "Minimal starter consuming nixpkgs-matrix via lib.mkPkgs";
+  description = "Minimal starter consuming nixpkgs-matrixai via lib.mkPkgs";
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs-matrix.url = "github:MatrixAI/nixpkgs-matrix";
+    nixpkgs-matrixai.url = "github:MatrixAI/nixpkgs-matrixai";
   };
 
-  outputs = inputs@{ flake-parts, nixpkgs-matrix, ... }:
+  outputs = inputs@{ flake-parts, nixpkgs-matrixai, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" ];
 
       perSystem = { system, ... }:
         let
-          pkgs = nixpkgs-matrix.lib.mkPkgs {
+          pkgs = nixpkgs-matrixai.lib.mkPkgs {
             inherit system;
             config.allowUnfree = true;
           };

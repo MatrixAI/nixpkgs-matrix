@@ -5,7 +5,7 @@ let
 
   repoSrc = builtins.path {
     path = ../.;
-    name = "nixpkgs-matrix-source";
+    name = "nixpkgs-matrixai-source";
   };
 
   allowlistPaths = builtins.attrNames pinPolicyAllowlist;
