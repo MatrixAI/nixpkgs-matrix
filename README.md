@@ -2,23 +2,6 @@
 
 Matrix AI public Nix package and module distribution flake.
 
-## Contents
-
-- [Usage](#usage)
-  - [What this flake exports](#what-this-flake-exports)
-  - [Start from the OSS template](#start-from-the-oss-template)
-  - [Constructor path (`lib.mkPkgs`)](#constructor-path-libmkpkgs)
-  - [Package registry and overlay model](#package-registry-and-overlay-model)
-  - [Direct output usage](#direct-output-usage)
-- [Development](#development)
-  - [Local developer shell](#local-developer-shell)
-  - [Canonical local test workflow](#canonical-local-test-workflow)
-  - [Pin governance workflows](#pin-governance-workflows)
-  - [Helper scripts for maintainers](#helper-scripts-for-maintainers)
-  - [Adding packages](#adding-packages)
-  - [Module placeholders](#module-placeholders)
-  - [Cross-repo consumption checks](#cross-repo-consumption-checks)
-
 ## Usage
 
 ### What this flake exports

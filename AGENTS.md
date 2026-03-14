@@ -1,142 +1,80 @@
 # AGENTS.md
 
-## Purpose
+- Read the repo profile selector at [`.matrixai/repo-profile.yml`](.matrixai/repo-profile.yml).
+- Standards are expected at `./.matrixai/matrixai-standards/` from private submodule sync; if access is unavailable, standards and skill updates cannot be refreshed.
+- Enforce the universal hotset [`.matrixai/matrixai-standards/standards/HOTSET.md`](.matrixai/matrixai-standards/standards/HOTSET.md).
+- When editing Markdown/prose artifacts, enforce [`.matrixai/matrixai-standards/standards/prose-markdown.md`](.matrixai/matrixai-standards/standards/prose-markdown.md).
+- Enforce the profile doc under [`.matrixai/matrixai-standards/standards/profiles/`](.matrixai/matrixai-standards/standards/profiles) matching `profile:` in [`.matrixai/repo-profile.yml`](.matrixai/repo-profile.yml) (for this repo: `flake-nix`).
+- Profile index (for discovery): [`.matrixai/matrixai-standards/standards/profiles/README.md`](.matrixai/matrixai-standards/standards/profiles/README.md)
+- Tooling contract reference (primarily JS-profile specific): [`.matrixai/matrixai-standards/standards/coding/tooling/tooling-contract.md`](.matrixai/matrixai-standards/standards/coding/tooling/tooling-contract.md).
+- Materialize skills from canonical `./.matrixai/matrixai-standards/skills/**` using profile and ecosystem collection defaults from `./.matrixai/matrixai-standards/skills-collections/**` into `./.agents/skills/**` for runtime discovery, and rematerialize after standards submodule updates.
+- For this repo profile, ensure both Nix skills are materialized: `nix-flake-local-dev` and `nix-flake-architecture`.
+- When using `nix run` with a flake ref, quote the full flake ref argument (for example, `'./.matrixai/matrixai-standards#skills-materializer'`).
+- Profile-driven materialization is the default fast path: run `nix run './.matrixai/matrixai-standards#skills-materializer' -- --standards-root ./.matrixai/matrixai-standards` and it resolves profile+ecosystem collection defaults into `./.agents/skills/**`.
+- Explicit selectors remain optional additive overrides: use `--collection ...` and/or `--root-skill ...` only when narrowing or extending selection behavior.
+- Content under `./.matrixai/matrixai-standards/standards/**` and `./.matrixai/matrixai-standards/skills/**` MUST NOT reference raw `exhibits/...` intake paths; use stable standards paths (for example `./.matrixai/matrixai-standards/standards/exhibits/...`) or source-repo identifiers instead.
+- Prefer ASCII punctuation/symbols when an equivalent exists (see [`.matrixai/matrixai-standards/standards/HOTSET.md`](.matrixai/matrixai-standards/standards/HOTSET.md) [MXS-GEN-006]).
+- Ensure edits comply with [`.editorconfig`](.editorconfig).
+- Line-reference policy (applies to all agent-generated repository content: Markdown, docs, templates, and code comments):
+  - Never emit `path:line` (e.g. `foo.ts:1`, `README.md:126`) into repository files.
+  - Do NOT put `:number` inside Markdown link destinations: `[x](path:123)` is banned.
+  - If a line reference is needed, use either:
+    - `[x](path#heading-anchor)` (if possible), or
+    - `[x](path) (line 123)` (preferred, portable), or
+    - `[x](path#L123)` only when explicitly targeting a renderer that supports `#L` anchors.
+  - If you would have emitted `:1`, drop it entirely: use `path` with no line info.
 
-This file is the architecture runbook for agents working in `nixpkgs-matrix`.
+## Project Local Configuration
 
-It defines:
+### Purpose
 
-- the public flake API surface,
-- the package and module topology,
-- composition/layering rules,
-- and contribution invariants.
+This section defines repository-specific guidance for this public Nix flake producer while keeping standards-owned rules in the vendored profile and skills docs.
 
-This document is intentionally architecture-focused. It does not define sync-gate process policy.
-
-## Scope boundaries
+### Scope boundaries
 
 - This repository is the public producer flake.
 - Changes here must preserve a coherent public consumption model.
 - Edit only files in this repository unless explicitly asked to work elsewhere.
 
-## Canonical read order for architecture work
+### Golden commands
 
-Read these files in order before editing:
+- Apply repo-local golden commands and overrides here:
+  - build: `nix build '.#packages.x86_64-linux.matrixai-public-hello'`
+  - test: `nix flake check path:. --no-write-lock-file`
+  - lintfix: not defined for this repo; use targeted edits then rerun `nix flake check path:. --no-write-lock-file`
+  - lint: `nix flake check path:. --no-write-lock-file`
+  - docs: `nix flake show path:. --no-write-lock-file`
+  - bench: not defined for this repo
 
-1. `flake.nix`
-2. `lib/default.nix`
-3. `lib/mkPkgs.nix`
-4. `pkgs/default.nix`
-5. `overlays/default.nix`
-6. `modules/nixos/default.nix`
-7. `modules/home/default.nix`
-8. `templates/oss/flake.nix`
-9. `README.md`
+### Architecture invariants (high level)
 
-## Public API contract surface
+- Treat `flake.nix` output surfaces as the public contract.
+- Preserve canonical constructor layering through `lib.mkPkgs`.
+- Keep package registration/projection coherent across exported package surfaces.
+- Keep module and template entrypoints stable unless a deliberate contract change is made.
+- Keep checks and consumer docs aligned with output-surface changes.
 
-The contract is the `outputs` shape in `flake.nix`:
+### Working order for architecture changes
 
-- `lib`
-- `overlays.default`
-- `legacyPackages.<system>`
-- `packages.<system>`
-- `templates.default`
-- `templates.oss`
-- `nixosModules.default`
-- `homeModules.default`
-- `checks.<system>` (local contract/build/smoke/module/pin policy checks)
-- `devShells.<system>.default` (developer ergonomics)
+Review architecture edits in this order:
 
-### `lib` expectations
+1. `flake.nix` output contract and checks wiring.
+2. Constructor and overlay composition (`lib/`, `overlays/`).
+3. Package registry/projection wiring (`pkgs/`).
+4. Module/template entrypoints (`modules/`, `templates/`).
+5. Consumer docs (`README.md`).
 
-`lib` is constructed in `lib/default.nix` via `lib.makeScope` and exposes:
-
-- `lib.lib` (upstream `nixpkgs.lib`),
-- `lib.callLib`,
-- `lib.mkPkgs`.
-
-Downstream consumers should treat `lib.mkPkgs` as the canonical package-set constructor.
-
-### Constructor layering rule
-
-`lib/mkPkgs.nix` is the architecture-critical layering point.
-
-Required overlay application order:
-
-1. upstream nixpkgs base,
-2. project default overlay,
-3. caller overlays.
-
-The ordering is implemented as:
-
-```nix
-overlays = [ overlay ] ++ overlays;
-```
-
-Do not change this ordering unless intentionally changing contract semantics.
-
-## Package topology model
-
-`pkgs/default.nix` is the single registry/projection hub:
-
-- `registry.topLevel`: top-level package names and paths,
-- `registry.scopes`: scoped sets (for example `python3Packages`),
-- `exportTopLevel`: flat top-level projection used for `packages.<system>`,
-- `overlay`: overlay path used by `overlays.default`.
-
-Invariants:
-
-- Keep package registration centralized in `pkgs/default.nix`.
-- Ensure additions are wired in both projection paths (`exportTopLevel` for top-level installables and `overlay` for recursive package universes).
-- Preserve the empty dependency set (`{ }:`) unless there is a strong architecture reason to change it.
-
-## Overlay adapter model
-
-`overlays/default.nix` is a thin adapter:
-
-- imports `pkgs/default.nix`,
-- delegates to `packageDefs.overlay`.
-
-Goal: one source of package truth with one canonical exported overlay.
-
-## Module topology model
-
-Module entrypoints are exported from `flake.nix`:
-
-- `nixosModules.default` -> `modules/nixos/default.nix`
-- `homeModules.default` -> `modules/home/default.nix`
-
-Current module files are placeholders. Keep exported names stable even when payloads evolve.
-
-## Consumer pattern policy
-
-Consumer usage examples live in `README.md`.
-
-- This repo exports exactly one minimal starter template for OSS consumers (`templates.oss`, aliased as `templates.default`).
-- Internal and external usage patterns must be documented inline in `README.md`.
-- If consumer patterns change, update `README.md` in the same change set.
-
-## Contribution checklist (architecture changes)
+### Contribution checklist
 
 When changing architecture-sensitive files, verify all of:
 
-1. `nix flake show` reflects intended output shape.
-2. `lib.mkPkgs` still produces a package set with expected overlay ordering.
-3. `packages.<system>` and `legacyPackages.<system>` still resolve expected packages.
-4. Template exports remain stable (`templates.default`, `templates.oss`) and starter init works.
-5. Module exports remain present (`nixosModules.default`, `homeModules.default`) and continue to evaluate.
-6. `README.md` remains accurate for consumers.
+1. `nix flake show path:. --no-write-lock-file` reflects intended output shape.
+2. `nix flake check path:. --no-write-lock-file` passes.
+3. Representative package outputs still resolve.
+4. Consumer-facing docs remain accurate.
 
-## Framework and systems policy
+### Anti-patterns
 
-- Flake composition uses flake-parts for structured output assembly.
-- Current systems policy is explicitly single-system (`x86_64-linux`).
-- Multi-system expansion is a separate policy decision and must not be bundled into structural migrations.
-
-## Anti-patterns
-
-- Splitting package truth across multiple competing registries.
-- Bypassing `lib.mkPkgs` as the primary constructor path in documentation.
-- Introducing public API drift without updating `README.md` and this runbook.
-- Expanding template surface without an explicit contract decision.
+- Duplicating volatile profile/skills detail here when it is already maintained in vendored standards.
+- Splitting package truth across competing registries or constructor paths.
+- Introducing output-contract drift without matching checks/docs updates.
