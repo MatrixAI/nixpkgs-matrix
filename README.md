@@ -2,15 +2,20 @@
 
 Matrix AI public Nix package and module distribution flake.
 
-This repository is a public producer flake that exposes a curated distribution surface for downstream consumers. It is not intended to be a raw mirror of upstream nixpkgs. The public contract is the `outputs` shape in `flake.nix`, and consumers are expected to compose through stable exported surfaces.
+This repository exists to provide one coherent producer interface for Matrix AI Nix consumers.
 
-The canonical construction path is `lib.mkPkgs`, which gives one deterministic layering model: upstream constructor, project overlay, then caller overlays. This keeps composition reproducible across local development, CI checks, and downstream consumption.
+Without this layer, teams consume many independent flakes directly and drift over time on pins, output shapes, and composition behavior. Here, curation is intentionally centralized so downstream repositories can depend on one stable contract instead of many floating contracts.
 
-This repository also allows constrained use of `builtins.getFlake` for explicitly curated external packages. The policy is:
+In short:
 
-- usage is path-allowlisted,
-- refs must be commit-pinned,
-- checks enforce usage constraints.
+- this repo owns what is distributed and how it is composed,
+- downstream repos own environment-specific rollout and runtime operations.
+
+Technical contract summary:
+
+- public API is the `outputs` shape in `flake.nix`,
+- canonical constructor path is `lib.mkPkgs`,
+- constrained `builtins.getFlake` is allowed only under policy (path allowlist, commit pinning, and check enforcement).
 
 Allowlist metadata is maintained in `checks/policy-pin-allowlist.nix`, while enforcement logic lives in `checks/policy-pin.nix`.
 
