@@ -22,6 +22,7 @@
 
       publicLib = import ./lib {
         lib = nixpkgs.lib;
+        pkgs = nixpkgs.legacyPackages.${system};
         overlay = defaultOverlay;
         mkPkgsUpstream = { system, overlays ? [ ], config ? { } }:
           import nixpkgs {
