@@ -702,7 +702,7 @@ update_pin_rev() {
 
   replace_managed_block "$(render_flake_nixpkgs_block "$new_sha")"
 
-  if ! nix flake lock --update-input nixpkgs --flake "$ROOT_DIR"; then
+  if ! nix flake update --flake "$ROOT_DIR" nixpkgs; then
     die "failed to refresh lock for nixpkgs input"
   fi
 
