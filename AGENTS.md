@@ -54,6 +54,26 @@ This section defines repository-specific guidance for this public Nix flake prod
 - Keep module and template entrypoints stable unless a deliberate contract change is made.
 - Keep checks and consumer docs aligned with output-surface changes.
 
+### Canonical registration and export seams
+
+- Keep each major subtree's canonical registry/export seam close to that subtree,
+  then have `flake.nix` consume that seam rather than re-declaring deep entries.
+- For library helpers, `lib/default.nix` is the canonical library export surface.
+- For packages, `pkgs/default.nix` is the canonical package registry/projection
+  surface.
+- For modules, `modules/default.nix` is the flake-facing family export surface,
+  while subtree-specific registries such as `modules/nixos/module-list.nix` are
+  the canonical internal source of truth for that family.
+- For the NixOS family specifically, keep these roles distinct:
+  `modules/nixos/module-list.nix` is the canonical leaf-module registry,
+  `modules/nixos/default.nix` is the aggregate default module composed from that
+  registry, and `modules/default.nix` is the flake-facing projection that
+  derives named module exports from the same registry.
+- Avoid maintaining the same package, module, or helper registration in multiple
+  places when one subtree-local registry can feed the higher-level export surface.
+- Prefer adding or removing entries at the subtree seam first, then let
+  `flake.nix` project the resulting attrsets outward.
+
 ### Working order for architecture changes
 
 Review architecture edits in this order:

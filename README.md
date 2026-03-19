@@ -33,7 +33,8 @@ The public contract is the `outputs` shape in `flake.nix`.
 | `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel`). |
 | `templates.default` | Minimal OSS starter template (alias of `templates.oss`). |
 | `templates.oss` | Minimal OSS starter template using flake-parts and `nixpkgs-matrixai.lib.mkPkgs`. |
-| `nixosModules.default` | Public NixOS module entrypoint. |
+| `nixosModules.default` | Public aggregate NixOS module entrypoint. |
+| `nixosModules.procpath` | Public NixOS Procpath module entrypoint. |
 | `homeModules.default` | Public Home Manager module entrypoint. |
 | `checks.${system}` | Local contract/policy/smoke gates consumed by `nix flake check`. |
 | `devShells.${system}.default` | Developer shell for local repository maintenance workflows. |
@@ -194,17 +195,45 @@ nix build '.#packages.x86_64-linux.matrixai-public-hello'
 nix build '.#legacyPackages.x86_64-linux.matrixai-public-hello'
 ```
 
-### Module placeholders
+### Modules
 
-Current module files are intentionally minimal placeholders:
-
-- `modules/nixos/default.nix`
-- `modules/home/default.nix`
-
-Stable exported entrypoints:
+Stable exported module entrypoints are:
 
 - `nixosModules.default`
+- `nixosModules.procpath`
 - `homeModules.default`
+
+The public NixOS surfaces are composed from one internal registry seam:
+
+- `modules/nixos/module-list.nix` is the internal list of NixOS leaf-module
+  paths.
+- `modules/nixos/default.nix` aggregates that list into `nixosModules.default`.
+- `modules/default.nix` projects named module exports such as
+  `nixosModules.procpath` from the same list.
+
+Consumers should use the exported flake module surfaces above rather than the
+internal registry files directly.
+
+Current public behavior:
+
+- `nixosModules.default` aggregates the registered NixOS leaf modules.
+- `nixosModules.procpath` provides `programs.procpath`.
+- `homeModules.default` remains a placeholder until a Home Manager-specific
+  module exists.
+
+Example NixOS usage:
+
+```nix
+{
+  imports = [
+    inputs.nixpkgs-matrixai.nixosModules.procpath
+  ];
+
+  programs.procpath = {
+    enable = true;
+  };
+}
+```
 
 ### Cross-repo consumption checks
 
