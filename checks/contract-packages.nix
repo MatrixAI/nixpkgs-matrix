@@ -1,17 +1,18 @@
-{ pkgs
+{ lib
+, pkgs
 , topLevelPackages
 , legacyPackages
 }:
 
 let
+  topLevelPackageNames = builtins.attrNames topLevelPackages;
+
   packagesInvariant =
-    assert builtins.hasAttr "matrixai-public-hello" topLevelPackages;
-    assert builtins.hasAttr "polykey-cli" topLevelPackages;
-    assert builtins.hasAttr "matrixai-public-hello" legacyPackages;
-    assert builtins.hasAttr "polykey-cli" legacyPackages;
-    assert builtins.hasAttr "python3Packages" legacyPackages;
-    assert builtins.hasAttr "jsonpyth" legacyPackages.python3Packages;
-    assert builtins.hasAttr "procpath" legacyPackages.python3Packages;
+    assert builtins.isAttrs topLevelPackages;
+    assert builtins.isAttrs legacyPackages;
+    assert builtins.all (name: builtins.hasAttr name legacyPackages) topLevelPackageNames;
+    assert builtins.all (name: lib.isDerivation topLevelPackages.${name}) topLevelPackageNames;
+    assert builtins.all (name: lib.isDerivation legacyPackages.${name}) topLevelPackageNames;
     true;
 in
 pkgs.runCommand "contract-packages" { } ''

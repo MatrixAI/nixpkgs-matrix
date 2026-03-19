@@ -5,8 +5,8 @@
 , defaultOverlay
 , topLevelPackages
 , legacyPackages
-, nixosModule
-, homeModule
+, nixosModulesSet
+, homeModulesSet
 , templatesSet
 }:
 
@@ -24,11 +24,11 @@
   };
 
   "contract-packages" = import ./contract-packages.nix {
-    inherit pkgs topLevelPackages legacyPackages;
+    inherit lib pkgs topLevelPackages legacyPackages;
   };
 
   "contract-modules" = import ./contract-modules.nix {
-    inherit lib system pkgs nixosModule homeModule;
+    inherit lib system pkgs nixosModulesSet homeModulesSet;
   };
 
   "policy-pin" = import ./policy-pin.nix {
