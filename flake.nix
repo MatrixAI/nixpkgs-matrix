@@ -40,16 +40,10 @@
 
       topLevelPackages = (import ./pkgs { }).exportTopLevel pkgs;
 
-      nixosModule = import ./modules/nixos/default.nix;
-      homeModule = import ./modules/home/default.nix;
+      moduleSets = import ./modules;
 
-      nixosModulesSet = {
-        default = nixosModule;
-      };
-
-      homeModulesSet = {
-        default = homeModule;
-      };
+      nixosModulesSet = moduleSets.nixosModules;
+      homeModulesSet = moduleSets.homeModules;
 
       templatesOss = {
         path = ./templates/oss;
@@ -83,8 +77,8 @@
             publicLib
             defaultOverlay
             topLevelPackages
-            nixosModule
-            homeModule
+            nixosModulesSet
+            homeModulesSet
             templatesSet
             ;
           legacyPackages = pkgs;
