@@ -12,9 +12,14 @@
     # END: nixpkgs-pin
 
     flake-parts.url = "github:hercules-ci/flake-parts";
+
+    gitignore = {
+      url = "github:hercules-ci/gitignore.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ nixpkgs, flake-parts, ... }:
+  outputs = inputs@{ nixpkgs, flake-parts, gitignore, ... }:
     let
       system = "x86_64-linux";
 
@@ -22,6 +27,7 @@
 
       publicLib = import ./lib {
         lib = nixpkgs.lib;
+        gitignore = gitignore.lib;
         pkgs = nixpkgs.legacyPackages.${system};
         overlay = defaultOverlay;
         mkPkgsUpstream = { system, overlays ? [ ], config ? { } }:

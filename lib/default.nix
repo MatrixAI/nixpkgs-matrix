@@ -4,6 +4,7 @@
   Signature:
 
     { lib
+    , gitignore
     , pkgs
     , overlay
     , mkPkgsUpstream
@@ -12,6 +13,9 @@
   Construction-time arguments:
     lib:
       Upstream nixpkgs lib.
+
+    gitignore:
+      Library helpers from hercules-ci/gitignore.nix.
 
     pkgs:
       Base package set used for dependency injection when loading library files.
@@ -28,6 +32,9 @@
       lib:
         The upstream nixpkgs lib, preserved under the public scope.
 
+      gitignore:
+        Source filtering helpers from hercules-ci/gitignore.nix.
+
       callLib:
         Explicit dependency-injection entrypoint for repository library helpers.
 
@@ -38,13 +45,14 @@
 */
 
 { lib
+, gitignore
 , pkgs
 , overlay
 , mkPkgsUpstream
 }:
 
 lib.makeScope lib.callPackageWith (self: {
-  inherit lib;
+  inherit gitignore lib;
 
   # Explicit DI entrypoint for library files
   callLib = lib.callPackageWith ((pkgs // self) // { inherit lib; });

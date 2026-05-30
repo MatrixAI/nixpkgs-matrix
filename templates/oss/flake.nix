@@ -12,6 +12,8 @@
 
       perSystem = { system, ... }:
         let
+          inherit (nixpkgs-matrixai.lib.gitignore) gitignoreSource;
+
           pkgs = nixpkgs-matrixai.lib.mkPkgs {
             inherit system;
             config.allowUnfree = true;
@@ -24,6 +26,16 @@
               pkgs.git
               pkgs."matrixai-public-hello"
             ];
+          };
+
+          packages.example-source = pkgs.stdenvNoCC.mkDerivation {
+            pname = "example-source";
+            version = "0.1.0";
+            src = gitignoreSource ./.;
+            installPhase = ''
+              mkdir -p "$out"
+              cp -R . "$out/src"
+            '';
           };
         };
     };

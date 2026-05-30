@@ -27,7 +27,7 @@ The public contract is the `outputs` shape in `flake.nix`.
 
 | Output | Purpose |
 | --- | --- |
-| `lib` | Public helper scope from `lib/default.nix`; includes upstream `nixpkgs.lib` under `lib.lib` and constructor helpers such as `lib.mkPkgs`. |
+| `lib` | Public helper scope from `lib/default.nix`; includes upstream `nixpkgs.lib` under `lib.lib`, source filtering helpers under `lib.gitignore`, and constructor helpers such as `lib.mkPkgs`. |
 | `overlays.default` | Canonical project overlay from `overlays/default.nix`. |
 | `legacyPackages.${system}` | Compatibility package set produced via `lib.mkPkgs`. |
 | `packages.${system}` | Curated flat top-level installables projection from `pkgs/default.nix` (`exportTopLevel`). |
@@ -80,6 +80,35 @@ mkPkgsUpstream {
   overlays = [ overlay ] ++ overlays;
 }
 ```
+
+### Gitignore-aware source filtering (`lib.gitignore`)
+
+This flake pins and re-exports `hercules-ci/gitignore.nix` under `lib.gitignore`.
+
+`gitignore.nix` is a Nix library helper, not an installable package. Its main helpers are:
+
+- `lib.gitignore.gitignoreSource`: filter a local source tree using Git ignore rules.
+- `lib.gitignore.gitignoreFilter`: produce a composable source filter function.
+
+Downstream flakes that already consume this repository should prefer the centralized helper unless they need independent pin control:
+
+```nix
+{ inputs, ... }:
+let
+  inherit (inputs.nixpkgs-matrixai.lib.gitignore) gitignoreSource;
+in
+{
+  packages.x86_64-linux.example = pkgs.stdenv.mkDerivation {
+    pname = "example";
+    version = "0.1.0";
+    src = gitignoreSource ./.;
+  };
+}
+```
+
+Projects should add `hercules-ci/gitignore.nix` as their own input only when they deliberately need a separate version or different `nixpkgs` follow policy.
+
+If a wrapper producer flake such as `nixpkgs-matrixai-private` is the only Matrix AI input pinned by a downstream repository, that wrapper must explicitly re-export this public library surface, for example by exposing `lib.gitignore` from its own `lib` output. Flake outputs do not automatically pass through transitive input outputs.
 
 ### Package registry and overlay model
 
