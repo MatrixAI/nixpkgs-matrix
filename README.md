@@ -136,7 +136,7 @@ Enter the repository maintenance shell:
 nix develop
 ```
 
-The shell is intentionally curated for this repository’s maintenance workflows and includes tools like `nix`, `git`, `jq`, GNU text/core utilities, `curl`, and `wget`.
+The shell is intentionally curated for this repository's maintenance workflows and includes tools like `nix`, `git`, `jq`, GNU text/core utilities, `curl`, and `wget`.
 
 ### Canonical local test workflow
 
@@ -154,6 +154,68 @@ Current checks:
 - `checks.${system}.contract-modules`
 - `checks.${system}.policy-pin`
 - `checks.${system}.smoke-hello`
+
+### Explore the pinned upstream nixpkgs in a REPL
+
+Use this when you need to inspect the upstream `nixpkgs` revision that this
+repository currently pins.
+
+Start a REPL from the repository root:
+
+```sh
+nix repl
+```
+
+Load this flake using path-source semantics:
+
+```nix
+:lf path:.
+```
+
+Then inspect the upstream input and its resolved source:
+
+```nix
+inputs.nixpkgs
+inputs.nixpkgs.rev
+inputs.nixpkgs.outPath
+inputs.nixpkgs.lib.version
+```
+
+Instantiate the pinned upstream package set directly when you need to inspect
+packages as they exist before this repository's overlay and constructor logic:
+
+```nix
+pkgs = import inputs.nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; }
+pkgs.lib.version
+pkgs.hello.version
+pkgs.stdenv.hostPlatform.system
+```
+
+Compare that with this repository's exported package surfaces when you need to
+see what the public flake contract exposes after `lib.mkPkgs` composition:
+
+```nix
+self.legacyPackages.x86_64-linux.lib.version
+self.packages.x86_64-linux.matrixai-public-hello
+```
+
+Use `path:.` for high-churn local exploration because it reads the working tree
+path directly. If you want parity with Git-backed flake acquisition, load the
+flake with `:lf .` instead and stage newly added files first:
+
+```nix
+:lf .
+```
+
+The `flake.lock` file remains the baseline pinned state for non-overridden
+inputs. Temporary `--override-input` usage supersedes the selected input edge in
+memory for that invocation only; it is not a persistent lock update.
+
+For one-off shell checks outside the REPL, quote flake refs that contain `#`:
+
+```sh
+nix eval 'path:.#legacyPackages.x86_64-linux.lib.version'
+```
 
 ### Pin governance workflows
 
