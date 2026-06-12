@@ -7,7 +7,7 @@
       type = "github";
       owner = "NixOS";
       repo = "nixpkgs";
-      rev = "d233902339c02a9c334e7e593de68855ad26c4cb";
+      rev = "9ae611a455b90cf061d8f332b977e387bda8e1ca";
     };
     # END: nixpkgs-pin
 
