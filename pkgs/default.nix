@@ -6,6 +6,7 @@ let
       matrixai-public-hello = ./top-level/matrixai-public-hello.nix;
       polykey-cli = ./top-level/polykey-cli.nix;
       structured-madr = ./top-level/structured-madr;
+      vl-convert = ./top-level/vl-convert;
     };
 
     scopes = {
