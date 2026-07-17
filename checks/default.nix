@@ -38,4 +38,8 @@
   "smoke-hello" = import ./smoke-hello.nix {
     inherit pkgs topLevelPackages legacyPackages;
   };
+
+  "smoke-vl-convert" = import ./smoke-vl-convert.nix {
+    inherit pkgs topLevelPackages legacyPackages;
+  };
 }

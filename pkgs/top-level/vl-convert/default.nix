@@ -1,7 +1,9 @@
 { lib
-, stdenvNoCC
+, stdenv
 , fetchurl
+, patchelf
 , unzip
+, zlib
 }:
 
 let
@@ -9,8 +11,13 @@ let
   version = "1.9.0";
 
   asset =
-    if stdenvNoCC.hostPlatform.system == "x86_64-linux" then "linux-64"
-    else throw "Unsupported platform: ${stdenvNoCC.hostPlatform.system}";
+    if stdenv.hostPlatform.system == "x86_64-linux" then "linux-64"
+    else throw "Unsupported platform: ${stdenv.hostPlatform.system}";
+
+  runtimeLibraryPath = lib.makeLibraryPath [
+    stdenv.cc.cc.lib
+    zlib
+  ];
 
   hashes = {
     linux-64 = "sha256-9VdjehWcdRChSG4eQahsORmr1xwYq8CCa0mcdscSqlM=";
@@ -21,10 +28,13 @@ let
     hash = hashes.${asset} or (throw "Missing hash for asset=${asset}");
   };
 in
-stdenvNoCC.mkDerivation {
+stdenv.mkDerivation {
   inherit pname version src;
 
-  nativeBuildInputs = [ unzip ];
+  nativeBuildInputs = [
+    patchelf
+    unzip
+  ];
 
   unpackPhase = ''
     runHook preUnpack
@@ -38,6 +48,11 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/bin"
     binary="$(find . -type f -name vl-convert -print -quit)"
     install -Dm755 "$binary" "$out/bin/vl-convert"
+
+    patchelf \
+      --set-interpreter ${stdenv.cc.bintools.dynamicLinker} \
+      --set-rpath ${runtimeLibraryPath} \
+      "$out/bin/vl-convert"
 
     runHook postInstall
   '';
